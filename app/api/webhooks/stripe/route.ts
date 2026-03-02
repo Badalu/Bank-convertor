@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { createAdminClient } from '@/lib/supabase/server'
-import Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +20,8 @@ export async function POST(request: NextRequest) {
   const body = await request.text()
   const signature = request.headers.get('stripe-signature')!
 
-  let event: Stripe.Event
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let event: any
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.CheckoutSession
+        const session = event.data.object
         const userId = session.metadata?.userId
         const subscriptionId = session.subscription as string
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription
+        const subscription = event.data.object
         const priceId = subscription.items.data[0].price.id
 
         await supabase.from('subscriptions')
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription
+        const subscription = event.data.object
         await supabase.from('subscriptions')
           .update({ status: 'cancelled' })
           .eq('stripe_subscription_id', subscription.id)
@@ -81,9 +81,8 @@ export async function POST(request: NextRequest) {
       }
 
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice
+        const invoice = event.data.object
         if (invoice.subscription) {
-          // Reset monthly usage on renewal
           await supabase.from('subscriptions')
             .update({ pages_used: 0 })
             .eq('stripe_subscription_id', invoice.subscription as string)
