@@ -1,0 +1,28 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "devCommand": "next dev",
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/parse-statement/route.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "app/api/webhooks/stripe/route.ts": {
+      "maxDuration": 10
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    }
+  ]
+}

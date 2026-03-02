@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply text-gray-900;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+}
+
+@layer components {
+  .container-xl {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .section {
+    @apply py-16 sm:py-24;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-6;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Prose for blog */
+.prose h2 { @apply text-2xl font-bold mt-8 mb-4 text-gray-900; }
+.prose h3 { @apply text-xl font-bold mt-6 mb-3 text-gray-900; }
+.prose p { @apply text-gray-700 leading-relaxed mb-4; }
+.prose ul { @apply list-disc list-inside space-y-2 mb-4 text-gray-700; }
+.prose ol { @apply list-decimal list-inside space-y-2 mb-4 text-gray-700; }
+.prose a { @apply text-blue-600 hover:underline; }
+.prose strong { @apply font-semibold text-gray-900; }
+.prose code { @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800; }
+.prose pre { @apply bg-gray-900 text-gray-100 p-4 rounded-xl overflow-x-auto mb-4; }
+.prose blockquote { @apply border-l-4 border-blue-500 pl-4 italic text-gray-600 my-4; }
