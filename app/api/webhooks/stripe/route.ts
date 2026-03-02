@@ -3,7 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { createAdminClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
-export const config = { api: { bodyParser: false } }
+export const dynamic = 'force-dynamic'
 
 const PLAN_PAGES: Record<string, number> = {
   [process.env.STRIPE_STARTER_PRICE_ID!]: 50,
