@@ -136,10 +136,12 @@ function extractTransactionsFromText(text: string): Transaction[] {
     /^(\d{2,4}[-\/]\d{1,2}[-\/]\d{1,2})/,
     /^(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{2,4})/i,
     /^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{2,4})/i,
+    /^(\d{1,2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{2,4})/i,
+    /^(\d{1,2}\.\d{1,2}\.\d{2,4})/,
   ]
 
-  // Amount pattern: numbers with optional decimals, possibly with commas
-  const amountPattern = /[\d,]+\.?\d{0,2}/
+  // Amount pattern: numbers with optional decimals, possibly with commas, handles both 1,234.56 and 1234.56
+  const amountPattern = /-?\b\d{1,3}(?:,\d{3})*(?:\.\d{2})?\b/g
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -152,31 +154,31 @@ function extractTransactionsFromText(text: string): Transaction[] {
 
     if (!dateMatch) continue
 
-    const date = dateMatch[1]
+    const date = dateMatch[1] || ''
     const rest = line.slice(dateMatch[0].length).trim()
 
     // Extract amounts from the line
-    const amounts = rest.match(new RegExp(amountPattern.source, 'g')) || []
-    const description = rest.replace(new RegExp(amountPattern.source, 'g'), '').trim().replace(/\s+/g, ' ')
+    const amounts = rest.match(amountPattern) || []
+    const description = rest.replace(amountPattern, '').trim().replace(/\s+/g, ' ')
 
     let debit = '', credit = '', balance = ''
 
     if (amounts.length >= 3) {
-      debit = amounts[0]
-      credit = amounts[1]
-      balance = amounts[2]
+      debit = amounts[0] || ''
+      credit = amounts[1] || ''
+      balance = amounts[2] || ''
     } else if (amounts.length === 2) {
       // Could be (debit/credit, balance) or (debit, credit)
-      balance = amounts[amounts.length - 1]
-      const first = parseFloat(amounts[0].replace(/,/g, ''))
+      balance = amounts[amounts.length - 1] || ''
+      const first = parseFloat(amounts[0] || '0')
       // Check next line for additional context
       if (i + 1 < lines.length && lines[i + 1].toLowerCase().includes('cr')) {
-        credit = amounts[0]
+        credit = amounts[0] || ''
       } else {
-        debit = amounts[0]
+        debit = amounts[0] || ''
       }
     } else if (amounts.length === 1) {
-      balance = amounts[0]
+      balance = amounts[0] || ''
     }
 
     if (date) {
@@ -207,9 +209,9 @@ function extractGenericTransactions(lines: string[]): Transaction[] {
     transactions.push({
       date: extractDate(line) || '',
       description: line.replace(amountRegex, '').replace(/\s+/g, ' ').trim(),
-      debit: amounts.length > 1 ? amounts[0] : '',
-      credit: amounts.length > 1 ? amounts[1] : '',
-      balance: amounts[amounts.length - 1],
+      debit: amounts.length > 1 ? amounts[0] || '' : '',
+      credit: amounts.length > 1 ? amounts[1] || '' : '',
+      balance: amounts[amounts.length - 1] || '',
     })
   }
 
@@ -272,5 +274,5 @@ export async function transactionsToExcel(transactions: Transaction[]): Promise<
     }
   }
 
-  return workbook.xlsx.writeBuffer() as Promise<Buffer>
+  return workbook.xlsx.writeBuffer() as unknown as Promise<Buffer>
 }

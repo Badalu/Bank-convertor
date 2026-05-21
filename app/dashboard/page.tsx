@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ManageSubscriptionButton } from './manage-sub-button'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -12,7 +14,24 @@ export default async function DashboardPage({
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/auth/login')
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-200 max-w-md text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Debug: Not Logged In</h1>
+          <p className="text-slate-600 mb-6">
+            The server does not see a valid session for you. This is why the dashboard is not loading.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link href="/auth/login" className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold">
+              Go to Login Page
+            </Link>
+            <p className="text-xs text-slate-400">URL: /dashboard</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const adminClient = createAdminClient()
 
@@ -21,129 +40,180 @@ export default async function DashboardPage({
     .from('subscriptions')
     .select('*')
     .eq('user_id', user.id)
-    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single()
 
-  // Get today's usage
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
+  // Get recent activity
   const { data: logs } = await adminClient
     .from('usage_logs')
     .select('pages_parsed, file_type, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(20)
+    .limit(10)
 
+  // Calculate daily usage
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   const todayLogs = logs?.filter(l => new Date(l.created_at) >= today) || []
   const dailyUsed = todayLogs.reduce((sum, l) => sum + l.pages_parsed, 0)
 
-  const isPaid = !!subscription
+  const isPaid = subscription?.status === 'active' || subscription?.status === 'activated'
   const pagesLimit = subscription?.pages_limit || 5
-  const pagesUsed = isPaid ? subscription.pages_used : dailyUsed
+  const pagesUsed = isPaid ? (subscription.pages_used || 0) : dailyUsed
   const pagesRemaining = Math.max(0, pagesLimit - pagesUsed)
   const usagePercent = Math.min(100, Math.round((pagesUsed / pagesLimit) * 100))
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="min-h-screen bg-slate-50">
+      <div className="container-xl py-12">
         {searchParams.success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800">
-            🎉 Subscription activated successfully! You can now convert more pages.
+          <div className="mb-8 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl text-green-700 flex items-center gap-3 animate-fade-in">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="font-semibold">Subscription activated! Your limits have been increased.</span>
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600 mt-1">{user.email}</p>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Account Dashboard</h1>
+            <div className="mt-2 flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 uppercase">
+                {user.email?.[0]}
+              </div>
+              <span className="text-slate-500 font-medium">{user.email}</span>
+            </div>
           </div>
-          <Link href="/tool">
-            <Button>Convert Statement</Button>
-          </Link>
+          <div className="flex gap-3">
+            <Link href="/tool">
+              <Button size="lg" className="rounded-xl shadow-lg shadow-blue-500/20">
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                New Conversion
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Plan Card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <div className="text-sm text-gray-500 mb-1">Current Plan</div>
-            <div className="text-2xl font-bold text-gray-900 capitalize">
-              {subscription?.plan || 'Free'}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          {/* Plan Status */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col justify-between group hover:border-blue-500/30 transition-all">
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Plan Status</span>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isPaid ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {isPaid ? 'Premium' : 'Standard'}
+                </span>
+              </div>
+              <h3 className="text-3xl font-extrabold text-slate-900 mb-2 capitalize">
+                {subscription?.plan || 'Free Tier'}
+              </h3>
+              <p className="text-slate-500 text-sm">
+                {isPaid ? `Renews on ${new Date(subscription.current_period_end).toLocaleDateString()}` : 'Limited daily processing pages'}
+              </p>
             </div>
             {!isPaid && (
-              <Link href="/pricing" className="text-sm text-blue-600 hover:underline mt-1 block">
-                Upgrade plan →
+              <Link href="/pricing" className="mt-8 text-sm font-bold text-blue-600 flex items-center group-hover:gap-2 transition-all">
+                Upgrade to Premium <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
               </Link>
-            )}
-            {isPaid && (
-              <div className="text-xs text-gray-500 mt-1">
-                Renews {new Date(subscription.current_period_end).toLocaleDateString()}
-              </div>
             )}
           </div>
 
-          {/* Usage Card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <div className="text-sm text-gray-500 mb-1">
-              Pages Used {isPaid ? '(This Month)' : '(Today)'}
+          {/* Usage Analytics */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 hover:border-blue-500/30 transition-all">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Resource Usage</span>
+              <span className="text-xs font-bold text-slate-900">{usagePercent}%</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {pagesUsed} <span className="text-gray-400 text-lg">/ {pagesLimit}</span>
+            <div className="flex items-end gap-1 mb-4">
+              <span className="text-4xl font-extrabold text-slate-900">{pagesUsed}</span>
+              <span className="text-slate-400 font-bold mb-1">/ {pagesLimit} pages</span>
             </div>
-            <div className="mt-3 bg-gray-100 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full transition-all ${usagePercent > 80 ? 'bg-red-500' : 'bg-blue-500'}`}
+            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-4">
+              <div 
+                className={`h-full rounded-full transition-all duration-1000 ${usagePercent > 85 ? 'bg-rose-500' : 'bg-blue-600'}`}
                 style={{ width: `${usagePercent}%` }}
               />
             </div>
-            <div className="text-xs text-gray-500 mt-1">{pagesRemaining} pages remaining</div>
+            <p className="text-slate-500 text-xs">
+              {pagesRemaining} pages remaining in your current cycle.
+            </p>
           </div>
 
-          {/* Actions Card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <div className="text-sm text-gray-500 mb-3">Quick Actions</div>
-            <div className="space-y-2">
-              <Link href="/tool" className="block w-full text-center py-2 px-4 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
-                Upload Statement
-              </Link>
-              {isPaid ? (
-                <ManageSubscriptionButton />
-              ) : (
-                <Link href="/pricing" className="block w-full text-center py-2 px-4 border border-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors">
-                  Upgrade Plan
-                </Link>
-              )}
+          {/* Integration Status */}
+          <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
+              </svg>
             </div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 block">Quick Support</span>
+            <h3 className="text-xl font-bold mb-4">Need a custom bank format?</h3>
+            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+              Our engineering team can add support for any bank statement in 24 hours.
+            </p>
+            <a href="mailto:support@bankparser.com" className="inline-flex items-center text-sm font-bold text-blue-400 hover:text-blue-300">
+              Contact Engineering →
+            </a>
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Recent Activity</h2>
+        {/* Recent Conversions */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-bold text-slate-900">Recent Conversions</h2>
+            <Link href="/tool" className="text-xs font-bold text-blue-600 hover:underline">View All</Link>
+          </div>
           {logs && logs.length > 0 ? (
-            <div className="divide-y divide-gray-50">
-              {logs.slice(0, 10).map((log, i) => (
-                <div key={i} className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                      <span className="text-xs font-bold text-blue-600 uppercase">{log.file_type?.slice(0, 3)}</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{log.file_type?.toUpperCase()} Statement</div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(log.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-600">{log.pages_parsed} page{log.pages_parsed !== 1 ? 's' : ''}</div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50">
+                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</th>
+                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pages</th>
+                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Timestamp</th>
+                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {logs.map((log, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[10px] font-bold text-blue-600">
+                            {log.file_type?.toUpperCase().slice(0, 3)}
+                          </div>
+                          <span className="text-sm font-bold text-slate-700 capitalize">{log.file_type} Statement</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-4 text-sm text-slate-600">{log.pages_parsed} pages</td>
+                      <td className="px-8 py-4 text-xs text-slate-500 font-mono">
+                        {new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-8 py-4">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider">
+                          <span className="w-1 h-1 bg-green-500 rounded-full" />
+                          Success
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <p>No activity yet.</p>
-              <Link href="/tool" className="text-blue-600 text-sm hover:underline mt-1 block">
-                Upload your first statement →
+            <div className="px-8 py-16 text-center">
+              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-slate-500 text-sm">No recent activity detected on your account.</p>
+              <Link href="/tool">
+                <Button variant="outline" size="sm" className="mt-6 rounded-xl">Start your first conversion</Button>
               </Link>
             </div>
           )}

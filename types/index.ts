@@ -22,8 +22,9 @@ export interface User {
 export interface Subscription {
   id: string
   user_id: string
-  stripe_customer_id: string
-  stripe_subscription_id: string
+  razorpay_customer_id: string
+  razorpay_subscription_id: string
+  razorpay_payment_id?: string
   plan: 'starter' | 'pro' | 'business'
   status: string
   current_period_end: string
@@ -59,7 +60,7 @@ export interface Plan {
   slug: string
   price: number
   pages_limit: number
-  stripe_price_id: string
+  razorpay_plan_id: string
   features: string[]
 }
 

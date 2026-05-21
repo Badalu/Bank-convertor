@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { signup } from '../actions'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -24,20 +25,23 @@ export default function SignupPage() {
       return
     }
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
+    try {
+      const formData = new FormData()
+      formData.append('email', email)
+      formData.append('password', password)
+      formData.append('origin', window.location.origin)
 
-    if (error) {
-      setError(error.message)
+      const result = await signup(formData)
+
+      if (result?.error) {
+        setError(result.error)
+        setLoading(false)
+      } else {
+        setSuccess(true)
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
       setLoading(false)
-    } else {
-      setSuccess(true)
     }
   }
 

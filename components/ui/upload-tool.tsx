@@ -4,6 +4,7 @@ import { useDropzone } from 'react-dropzone'
 import { Transaction } from '@/types'
 import { TransactionTable } from './transaction-table'
 import { Button } from './button'
+import { transactionsToTallyXML } from '@/lib/tally'
 
 interface UploadToolProps {
   userId?: string
@@ -96,6 +97,17 @@ export function UploadTool({ userId }: UploadToolProps) {
     } catch {
       alert('Failed to generate Excel file')
     }
+  }
+
+  const downloadTally = () => {
+    const xml = transactionsToTallyXML(transactions)
+    const blob = new Blob([xml], { type: 'text/xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName.replace(/\.[^.]+$/, '') + '_tally.xml'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -197,13 +209,19 @@ export function UploadTool({ userId }: UploadToolProps) {
                 <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Download CSV
+                CSV
               </Button>
-              <Button onClick={downloadExcel} variant="primary" size="sm">
+              <Button onClick={downloadExcel} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-100">
                 <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Download Excel
+                Excel
+              </Button>
+              <Button onClick={downloadTally} variant="primary" size="sm">
+                <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Tally XML
               </Button>
             </div>
           </div>

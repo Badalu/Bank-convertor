@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { login } from '../actions'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -12,22 +13,45 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect') || '/dashboard'
+  const redirectPath = searchParams.get('redirect') || '/dashboard'
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkUser = async () => {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push(redirectPath)
+      }
+    }
+    checkUser()
+  }, [router, redirectPath])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    try {
+      const formData = new FormData()
+      formData.append('email', email)
+      formData.append('password', password)
 
-    if (error) {
-      setError(error.message)
+      const result = await login(formData)
+      
+      if (result?.error) {
+        setError(result.error)
+        setLoading(false)
+      }
+      // If successful, the server action will handle the redirect
+    } catch (err) {
+      // In Next.js, redirect() throws an error which is caught here.
+      // If it's a redirect, we shouldn't show an error.
+      if (err instanceof Error && err.message === 'NEXT_REDIRECT') {
+        return
+      }
+      setError('An unexpected error occurred. Please try again.')
       setLoading(false)
-    } else {
-      router.push(redirect)
-      router.refresh()
     }
   }
 

@@ -1,5 +1,5 @@
--- BankConverter SaaS - Supabase Database Schema
--- Run this in your Supabase SQL editor
+-- BankConverter SaaS - Updated Supabase Database Schema for Razorpay
+-- Run this in your NEW Supabase SQL editor
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -8,10 +8,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  stripe_customer_id TEXT,
-  stripe_subscription_id TEXT UNIQUE,
+  razorpay_customer_id TEXT,
+  razorpay_subscription_id TEXT UNIQUE,
+  razorpay_payment_id TEXT,
   plan TEXT NOT NULL DEFAULT 'starter' CHECK (plan IN ('starter', 'pro', 'business')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'past_due', 'trialing')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'past_due', 'trialing', 'created', 'authenticated', 'activated')),
   current_period_end TIMESTAMPTZ,
   pages_limit INTEGER NOT NULL DEFAULT 50,
   pages_used INTEGER NOT NULL DEFAULT 0,
@@ -51,7 +52,7 @@ CREATE TABLE IF NOT EXISTS plans (
   slug TEXT NOT NULL UNIQUE,
   price INTEGER NOT NULL,
   pages_limit INTEGER NOT NULL,
-  stripe_price_id TEXT,
+  razorpay_plan_id TEXT,
   features JSONB DEFAULT '[]',
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -91,7 +92,7 @@ CREATE INDEX IF NOT EXISTS idx_usage_logs_user_id ON usage_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_ip ON usage_logs(ip_address);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub ON subscriptions(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_razorpay_sub ON subscriptions(razorpay_subscription_id);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_slug ON blog_posts(slug);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_published ON blog_posts(published);
 

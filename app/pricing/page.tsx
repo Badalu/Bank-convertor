@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { STRIPE_PLANS } from '@/lib/stripe'
+import Script from 'next/script'
+import { useRouter } from 'next/navigation'
 
 const plans = [
   {
@@ -52,25 +53,49 @@ const plans = [
 
 export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null)
+  const router = useRouter()
 
   const handleUpgrade = async (planKey: string) => {
     setLoading(planKey)
     try {
-      const res = await fetch('/api/stripe', {
+      const res = await fetch('/api/razorpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planKey, action: 'checkout' }),
+        body: JSON.stringify({ plan: planKey }),
       })
+      
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else if (res.status === 401) {
-        window.location.href = '/auth/login?redirect=/pricing'
-      } else {
-        alert(data.error || 'Failed to start checkout')
+      
+      if (res.status === 401) {
+        router.push('/auth/login?redirect=/pricing')
+        return
       }
-    } catch {
-      alert('Network error. Please try again.')
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to start checkout')
+      }
+
+      const options = {
+        key: data.keyId,
+        subscription_id: data.subscriptionId,
+        name: data.name,
+        description: data.description,
+        handler: function (response: any) {
+          // Payment successful
+          router.push('/dashboard?success=true')
+        },
+        prefill: {
+          email: data.userEmail,
+        },
+        theme: {
+          color: '#2563EB',
+        },
+      }
+
+      const rzp = new (window as any).Razorpay(options)
+      rzp.open()
+    } catch (error: any) {
+      alert(error.message || 'Network error. Please try again.')
     } finally {
       setLoading(null)
     }
@@ -78,6 +103,8 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         {/* Header */}
         <div className="text-center mb-16">
@@ -159,7 +186,7 @@ export default function PricingPage() {
             <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            30-day money-back guarantee · Cancel anytime · Secure payment via Stripe
+            30-day money-back guarantee · Cancel anytime · Secure payment via Razorpay
           </div>
         </div>
 
